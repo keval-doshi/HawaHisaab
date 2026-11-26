@@ -1,7 +1,13 @@
-import { GoogleGenAI, type Schema } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, type Schema } from '@google/genai';
 
-const GEMINI_TIMEOUT_MS = 15_000;
+/** Upper bound for one plan request; the deterministic fallback is returned after this. */
+const GEMINI_TIMEOUT_MS = 25_000;
 const GEMINI_TEMPERATURE = 0.3;
+/**
+ * The plan is a structured rewrite of numbers the engine already computed, so deep
+ * reasoning is unnecessary; low thinking keeps latency well inside the timeout.
+ */
+const GEMINI_THINKING_LEVEL = ThinkingLevel.LOW;
 
 export interface GeminiGenerateInput {
   model: string;
@@ -28,6 +34,7 @@ export function createSdkGeminiClient(apiKey: string): GeminiClient {
           responseMimeType: 'application/json',
           responseSchema: input.responseSchema,
           temperature: GEMINI_TEMPERATURE,
+          thinkingConfig: { thinkingLevel: GEMINI_THINKING_LEVEL },
           abortSignal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
         },
       });
