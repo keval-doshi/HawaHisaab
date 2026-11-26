@@ -4,8 +4,8 @@
     "server": {
       "root": "server",
       "framework": "express",
-      "entrypoint": "src/index.ts",
-      "buildCommand": "cd .. && npm run build --workspace=engine && npm run build --workspace=server"
+      "entrypoint": "vercel.mjs",
+      "buildCommand": "cd .. && npm run build --workspace=engine && npm run build:vercel --workspace=server"
     },
     "web": {
       "root": "web",
