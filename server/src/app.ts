@@ -60,10 +60,18 @@ export function createApp(options: AppOptions = {}): express.Express {
     res.status(404).json({ error: 'API route not found' });
   });
 
+  // On Vercel the `web` service serves the frontend, so the API never serves static files.
+  // Locally, look for web/dist relative to the repo root or the server workspace.
   const webDistDir =
-    options.webDistDir ?? path.resolve(import.meta.dirname, '../../web/dist');
+    options.webDistDir ??
+    (process.env['VERCEL']
+      ? undefined
+      : [
+          path.resolve(process.cwd(), 'web/dist'),
+          path.resolve(process.cwd(), '../web/dist'),
+        ].find((dir) => existsSync(dir)));
 
-  if (existsSync(webDistDir)) {
+  if (webDistDir && existsSync(webDistDir)) {
     app.use(express.static(webDistDir));
     app.get('/{*splat}', (_req, res) => {
       res.sendFile(path.join(webDistDir, 'index.html'));
