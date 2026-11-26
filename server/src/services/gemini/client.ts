@@ -64,10 +64,16 @@ export async function generateWithModelFallback<T>(
   for (const model of models) {
     for (let tryIndex = 0; tryIndex < 2; tryIndex += 1) {
       if (signal.aborted) throw signal.reason;
+      const startedAt = Date.now();
       try {
         return await attempt(model);
       } catch (error) {
         lastError = error;
+        const reason =
+          error instanceof ApiError ? `HTTP ${String(error.status)}` : String(error);
+        console.warn(
+          `[gemini] ${model} attempt ${String(tryIndex + 1)} failed after ${String(Date.now() - startedAt)} ms: ${reason}`,
+        );
         if (tryIndex === 0 && isRetryableGeminiError(error)) {
           await delay(retryDelayMs, signal);
           continue;
