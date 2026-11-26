@@ -26,7 +26,7 @@ export function loadConfig(): ServerConfig {
     nodeEnv: process.env['NODE_ENV'] ?? 'development',
     airCacheTtlMs: FIFTEEN_MINUTES_MS,
     geminiApiKey: process.env['GEMINI_API_KEY']?.trim() ?? '',
-    geminiModel: process.env['GEMINI_MODEL']?.trim() || 'gemini-2.5-flash',
+    geminiModel: process.env['GEMINI_MODEL']?.trim() || 'gemini-3.5-flash',
     planRateLimitMax: DEFAULT_PLAN_RATE_LIMIT,
     planRateLimitWindowMs: FIFTEEN_MINUTES_MS,
   };

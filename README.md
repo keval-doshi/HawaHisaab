@@ -17,7 +17,7 @@ HawaHisaab is a GenAI-powered urban air quality assistant built for Indian famil
 
 ## Google Services Used
 
-- **Gemini API (`@google/genai`)**: Called exclusively from the backend (`POST /api/plan`) using `GEMINI_MODEL` (defaulting to `gemini-2.5-flash`) with strict structured JSON `responseSchema` output, `<<<DATA>>>` grounding, prompt-injection isolation for user free text, and English/Hindi (`en` / `hi`) output.
+- **Gemini API (`@google/genai`)**: Called exclusively from the backend (`POST /api/plan`) using `GEMINI_MODEL` (defaulting to `gemini-3.5-flash`) with strict structured JSON `responseSchema` output, `<<<DATA>>>` grounding, prompt-injection isolation for user free text, and English/Hindi (`en` / `hi`) output.
 
 ---
 
@@ -81,7 +81,7 @@ hawahisaab/
    - **API Rewrite:** `/api/(.*)` -> `/api` ([`api/index.ts`](api/index.ts))
 4. **Add Environment Variables** in Vercel **Project Settings -> Environment Variables**:
    - `GEMINI_API_KEY` = your Google AI Studio Gemini API key
-   - `GEMINI_MODEL` = `gemini-2.5-flash` _(optional)_
+   - `GEMINI_MODEL` = `gemini-3.5-flash` _(optional)_
 5. Click **Deploy**. Every push to your connected GitHub branch will trigger a fresh production deployment.
 
 ---
