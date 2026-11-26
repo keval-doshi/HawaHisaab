@@ -92,7 +92,9 @@ function supportsThinkingLevel(model: string): boolean {
 
 /** Gemini client backed by the official `@google/genai` SDK, using structured JSON output. */
 export function createSdkGeminiClient(apiKey: string): GeminiClient {
-  const ai = new GoogleGenAI({ apiKey });
+  // v1beta: structured output with a system instruction is not enabled on v1 for every
+  // model (gemini-2.5-flash rejects it), and the fallback models must accept the same request.
+  const ai = new GoogleGenAI({ apiKey, apiVersion: 'v1beta' });
   return {
     async generatePlanJson(input: GeminiGenerateInput): Promise<string> {
       const signal = AbortSignal.timeout(GEMINI_TIMEOUT_MS);
