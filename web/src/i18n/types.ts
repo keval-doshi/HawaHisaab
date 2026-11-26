@@ -18,6 +18,11 @@ export interface Translations {
   langToggleLabel: string;
   switchToLang: string;
   editProfile: string;
+  errorBoundary: {
+    title: string;
+    message: string;
+    reload: string;
+  };
   nav: Record<TabId, string>;
   aqiBands: Record<AqiBand, string>;
   ageGroups: Record<AgeGroup, string>;

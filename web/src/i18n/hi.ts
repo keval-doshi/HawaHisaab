@@ -7,6 +7,11 @@ export const hi: Translations = {
   langToggleLabel: 'भाषा को अंग्रेज़ी में बदलें',
   switchToLang: 'English',
   editProfile: 'परिवार प्रोफ़ाइल बदलें',
+  errorBoundary: {
+    title: 'कुछ गलत हो गया',
+    message: 'यह भाग दिखाया नहीं जा सका। आपकी सहेजी गई परिवार प्रोफ़ाइल सुरक्षित है।',
+    reload: 'पेज फिर से लोड करें',
+  },
   nav: {
     today: 'आज की योजना',
     lab: 'इनडोर लैब',

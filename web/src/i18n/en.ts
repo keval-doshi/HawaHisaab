@@ -7,6 +7,11 @@ export const en: Translations = {
   langToggleLabel: 'Switch language to Hindi',
   switchToLang: 'हिन्दी',
   editProfile: 'Edit family profile',
+  errorBoundary: {
+    title: 'Something went wrong',
+    message: 'This section could not be displayed. Your saved family profile is safe.',
+    reload: 'Reload page',
+  },
   nav: {
     today: 'Today',
     lab: 'Indoor Lab',

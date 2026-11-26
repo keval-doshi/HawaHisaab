@@ -1,5 +1,11 @@
 import type { ActivityLevel, AgeGroup, AqiBand, HomeSize, SwapId } from './types.js';
 
+/**
+ * Outdoor PM2.5 (µg/m³) assumed when no live reading is available yet (e.g. before the
+ * forecast loads or when the current hour is missing). Typical winter value for Indian metros.
+ */
+export const DEFAULT_OUTDOOR_PM25_UG_M3 = 120;
+
 export interface AqiBreakpoint {
   band: AqiBand;
   cLow: number;

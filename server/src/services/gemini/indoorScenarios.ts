@@ -1,4 +1,5 @@
 import {
+  DEFAULT_OUTDOOR_PM25_UG_M3,
   HOME_VOLUME_M3,
   INDOOR_SOURCE_RATES_UG_PER_HOUR,
   simulateIndoorAir,
@@ -6,9 +7,6 @@ import {
   type FamilyProfile,
   type IndoorSimulationResult,
 } from '@hawahisaab/engine';
-
-/** Outdoor PM2.5 (µg/m³) assumed when the forecast has no current reading. */
-export const DEFAULT_OUTDOOR_PM25_UG_M3 = 120;
 
 export interface IndoorScenarios {
   /** Windows closed, purifier on, clean cooking (pressure cooker / boiling). */
