@@ -57,6 +57,7 @@ export function createApp(options: AppOptions = {}): express.Express {
   const planService = createPlanService({
     geminiApiKey: config.geminiApiKey,
     geminiModel: config.geminiModel,
+    geminiFallbackModels: config.geminiFallbackModels,
     geminiClient: options.geminiClient,
   });
 

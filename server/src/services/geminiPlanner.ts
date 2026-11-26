@@ -29,6 +29,8 @@ export interface PlanService {
 export interface PlanServiceOptions {
   geminiApiKey: string;
   geminiModel: string;
+  /** Tried in order when the primary model is overloaded or unavailable. */
+  geminiFallbackModels?: readonly string[];
   /** Injected client (used by tests); defaults to the SDK client when an API key is set. */
   geminiClient?: GeminiClient;
 }
@@ -127,6 +129,7 @@ export function createPlanService(options: PlanServiceOptions): PlanService {
         );
         const rawJson = await client.generatePlanJson({
           model: options.geminiModel,
+          fallbackModels: options.geminiFallbackModels,
           systemInstruction,
           prompt,
           responseSchema: GEMINI_RESPONSE_SCHEMA,

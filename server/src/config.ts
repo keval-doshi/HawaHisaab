@@ -12,12 +12,22 @@ function parsePort(raw: string | undefined): number {
     : DEFAULT_PORT;
 }
 
+/** Parses a comma-separated model list; an unset variable uses the defaults, an empty one disables fallback. */
+function parseModelList(raw: string | undefined, defaults: string[]): string[] {
+  if (raw === undefined) return defaults;
+  return raw
+    .split(',')
+    .map((model) => model.trim())
+    .filter((model) => model.length > 0);
+}
+
 export interface ServerConfig {
   port: number;
   nodeEnv: string;
   airCacheTtlMs: number;
   geminiApiKey: string;
   geminiModel: string;
+  geminiFallbackModels: string[];
   planRateLimitMax: number;
   planRateLimitWindowMs: number;
   apiRateLimitMax: number;
@@ -31,6 +41,9 @@ export function loadConfig(): ServerConfig {
     airCacheTtlMs: FIFTEEN_MINUTES_MS,
     geminiApiKey: process.env['GEMINI_API_KEY']?.trim() ?? '',
     geminiModel: process.env['GEMINI_MODEL']?.trim() || 'gemini-3.5-flash',
+    geminiFallbackModels: parseModelList(process.env['GEMINI_FALLBACK_MODELS'], [
+      'gemini-2.5-flash',
+    ]),
     planRateLimitMax: DEFAULT_PLAN_RATE_LIMIT,
     planRateLimitWindowMs: FIFTEEN_MINUTES_MS,
     apiRateLimitMax: DEFAULT_API_RATE_LIMIT,
