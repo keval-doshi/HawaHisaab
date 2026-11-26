@@ -43,7 +43,7 @@ hawahisaab/
 - **Input validation:** every API input is validated with Zod (bounded strings, numbers and array sizes), JSON bodies are capped at 64 kB, and combined free text at 2 kB.
 - **Rate limiting:** a per-IP limit on all `/api` routes (120 requests/min) plus a stricter limit on `/api/plan` (20 per 15 min). `trust proxy` is set so limits use the real client IP behind Vercel.
 - **HTTP hardening:** Helmet with a strict Content-Security-Policy (`default-src 'self'`), `x-powered-by` disabled, and error responses that never leak stack traces.
-- **Prompt-injection defence:** user-typed text is isolated in its own `USER_PROFILE_DATA` block marked as untrusted, with `<`/`>` escaped so it cannot close the block early. Gemini output is schema-validated, and every number shown to users is re-filled from the deterministic engine. Transient Gemini errors (429/503) are retried and then routed to a fallback model before the rule-based plan is used.
+- **Prompt-injection defence:** user-typed text is isolated in its own `USER_PROFILE_DATA` block marked as untrusted, with `<`/`>` escaped so it cannot close the block early. Gemini output is schema-validated, and every number shown to users is re-filled from the deterministic engine. If the primary Gemini model is overloaded or slow, the request moves to a fallback model (one capped attempt each, 25 s total) before the rule-based plan is used.
 - **Dependencies:** `npm audit` reports 0 known vulnerabilities.
 
 ---

@@ -1,4 +1,10 @@
-import { ApiError, GoogleGenAI, ThinkingLevel, type Schema } from '@google/genai';
+import {
+  ApiError,
+  GoogleGenAI,
+  ThinkingLevel,
+  type Schema,
+  type ThinkingConfig,
+} from '@google/genai';
 
 /** Upper bound for one plan request across all attempts; the rule-based plan is used after this. */
 const GEMINI_TIMEOUT_MS = 25_000;
@@ -8,14 +14,15 @@ const GEMINI_TEMPERATURE = 0.3;
  * reasoning is unnecessary; low thinking keeps latency well inside the timeout.
  */
 const GEMINI_THINKING_LEVEL = ThinkingLevel.LOW;
-/** Pause before retrying the same model after a transient (overload / rate limit) error. */
-const RETRY_DELAY_MS = 1_000;
-/** HTTP statuses Gemini uses for transient conditions worth retrying. */
-const RETRYABLE_STATUSES = new Set([429, 500, 503, 504]);
+/**
+ * Cap for every attempt except the last, so one slow failure (an overloaded model can take
+ * ~15 s to return 503) cannot use up the whole budget the fallback model needs.
+ */
+const NON_FINAL_ATTEMPT_TIMEOUT_MS = 12_000;
 
 export interface GeminiGenerateInput {
   model: string;
-  /** Models to try, in order, if `model` keeps failing (e.g. 503 high demand). */
+  /** Models to try, in order, if `model` fails (e.g. 503 high demand). */
   fallbackModels?: readonly string[];
   systemInstruction: string;
   prompt: string;
@@ -27,67 +34,49 @@ export interface GeminiClient {
   generatePlanJson(input: GeminiGenerateInput): Promise<string>;
 }
 
-export function isRetryableGeminiError(error: unknown): boolean {
-  return error instanceof ApiError && RETRYABLE_STATUSES.has(error.status);
-}
-
-function delay(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      reject(signal.reason as Error);
-      return;
-    }
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer);
-        reject(signal.reason as Error);
-      },
-      { once: true },
-    );
-  });
+function describeFailure(error: unknown): string {
+  return error instanceof ApiError ? `HTTP ${String(error.status)}` : String(error);
 }
 
 /**
- * Calls `attempt` for each model in order. A model that fails with a transient error is
- * retried once before moving on; any other error moves straight to the next model.
- * Throws the last error if every model fails or the shared deadline signal aborts.
+ * Tries each model once, in order, and returns the first success. Every attempt except the
+ * last is capped at `nonFinalAttemptTimeoutMs`; all attempts share the `deadline` signal.
+ * Throws the last error if every model fails or the deadline passes.
  */
 export async function generateWithModelFallback<T>(
   models: readonly string[],
-  attempt: (model: string) => Promise<T>,
-  signal: AbortSignal,
-  retryDelayMs = RETRY_DELAY_MS,
+  attempt: (model: string, signal: AbortSignal) => Promise<T>,
+  deadline: AbortSignal,
+  nonFinalAttemptTimeoutMs = NON_FINAL_ATTEMPT_TIMEOUT_MS,
 ): Promise<T> {
   let lastError: unknown = new Error('No Gemini model configured');
-  for (const model of models) {
-    for (let tryIndex = 0; tryIndex < 2; tryIndex += 1) {
-      if (signal.aborted) throw signal.reason;
-      const startedAt = Date.now();
-      try {
-        return await attempt(model);
-      } catch (error) {
-        lastError = error;
-        const reason =
-          error instanceof ApiError ? `HTTP ${String(error.status)}` : String(error);
-        console.warn(
-          `[gemini] ${model} attempt ${String(tryIndex + 1)} failed after ${String(Date.now() - startedAt)} ms: ${reason}`,
-        );
-        if (tryIndex === 0 && isRetryableGeminiError(error)) {
-          await delay(retryDelayMs, signal);
-          continue;
-        }
-        break;
-      }
+  for (const [index, model] of models.entries()) {
+    if (deadline.aborted) throw deadline.reason;
+    const isFinal = index === models.length - 1;
+    const signal = isFinal
+      ? deadline
+      : AbortSignal.any([deadline, AbortSignal.timeout(nonFinalAttemptTimeoutMs)]);
+    const startedAt = Date.now();
+    try {
+      return await attempt(model, signal);
+    } catch (error) {
+      lastError = error;
+      console.warn(
+        `[gemini] ${model} failed after ${String(Date.now() - startedAt)} ms: ${describeFailure(error)}`,
+      );
     }
   }
   throw lastError;
 }
 
-/** `thinkingLevel` is a Gemini 3+ setting; older models reject it. */
-function supportsThinkingLevel(model: string): boolean {
-  return !/^gemini-[12](\.|-)/.test(model);
+/**
+ * Gemini 3+ models take a thinking level; Gemini 2.x models reject it and instead take a
+ * token budget, where 0 turns thinking off so the fallback answers quickly.
+ */
+function thinkingConfigFor(model: string): ThinkingConfig {
+  return /^gemini-[12][.-]/.test(model)
+    ? { thinkingBudget: 0 }
+    : { thinkingLevel: GEMINI_THINKING_LEVEL };
 }
 
 /** Gemini client backed by the official `@google/genai` SDK, using structured JSON output. */
@@ -97,12 +86,12 @@ export function createSdkGeminiClient(apiKey: string): GeminiClient {
   const ai = new GoogleGenAI({ apiKey, apiVersion: 'v1beta' });
   return {
     async generatePlanJson(input: GeminiGenerateInput): Promise<string> {
-      const signal = AbortSignal.timeout(GEMINI_TIMEOUT_MS);
+      const deadline = AbortSignal.timeout(GEMINI_TIMEOUT_MS);
       const models = [...new Set([input.model, ...(input.fallbackModels ?? [])])];
 
       return generateWithModelFallback(
         models,
-        async (model) => {
+        async (model, signal) => {
           const response = await ai.models.generateContent({
             model,
             contents: input.prompt,
@@ -111,15 +100,13 @@ export function createSdkGeminiClient(apiKey: string): GeminiClient {
               responseMimeType: 'application/json',
               responseSchema: input.responseSchema,
               temperature: GEMINI_TEMPERATURE,
-              ...(supportsThinkingLevel(model)
-                ? { thinkingConfig: { thinkingLevel: GEMINI_THINKING_LEVEL } }
-                : {}),
+              thinkingConfig: thinkingConfigFor(model),
               abortSignal: signal,
             },
           });
           return response.text ?? '';
         },
-        signal,
+        deadline,
       );
     },
   };
