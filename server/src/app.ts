@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import express, { type NextFunction, type Request, type Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { loadConfig, type ServerConfig } from './config.js';
 import { createAirRouter } from './routes/air.js';
@@ -39,6 +40,18 @@ export function createApp(options: AppOptions = {}): express.Express {
   );
 
   app.use(express.json({ limit: '64kb' }));
+
+  // Baseline per-IP limit for every API route; /api/plan adds a stricter limit on top.
+  app.use(
+    '/api',
+    rateLimit({
+      windowMs: config.apiRateLimitWindowMs,
+      limit: config.apiRateLimitMax,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      message: { error: 'Too many requests. Please slow down and try again shortly.' },
+    }),
+  );
 
   const openMeteo = createOpenMeteoService(config.airCacheTtlMs);
   const planService = createPlanService({

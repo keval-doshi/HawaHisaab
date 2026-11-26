@@ -11,7 +11,8 @@ HawaHisaab is a GenAI-powered urban air quality assistant built for Indian famil
 
 ## Live Deployment
 
-- **Live URL:** `https://<your-vercel-project>.vercel.app` _(update after connecting your GitHub repository to Vercel)_
+- **Live URL:** https://hawahisaab.vercel.app
+- **Hosting:** Vercel (one project, two services: the React/Vite frontend at `/` and the Express API at `/api`). Every push to `main` deploys automatically.
 
 ---
 
@@ -27,10 +28,23 @@ HawaHisaab is a GenAI-powered urban air quality assistant built for Indian famil
 hawahisaab/
 ├── engine/    # Pure deterministic TypeScript engine (CPCB AQI, clean windows, US EPA dose, indoor mass balance, ARAI/India swaps, daily ledger, fallback plan)
 ├── server/    # Express + TypeScript API (/api/air, /api/geocode, /api/plan) with helmet, zod validation, 15-min TTL cache, and rate limiting
-├── api/       # Vercel Serverless Function adapter exporting the Express app
+│   ├── src/services/gemini/   # Gemini client, structured-output schema, grounded prompt builder, indoor scenarios
+│   ├── scripts/               # esbuild bundler for the Vercel function (single self-contained ESM file)
+│   └── vercel.mjs             # Vercel entrypoint
 ├── web/       # Mobile-first React + Vite + TypeScript SPA (EN/HI toggle, WCAG 2.1 AA, lazy-loaded views, localStorage profile)
 └── vercel.json
 ```
+
+---
+
+## Security
+
+- **Secrets stay server-side:** `GEMINI_API_KEY` lives only in server environment variables; the browser never calls Gemini directly.
+- **Input validation:** every API input is validated with Zod (bounded strings, numbers and array sizes), JSON bodies are capped at 64 kB, and combined free text at 2 kB.
+- **Rate limiting:** a per-IP limit on all `/api` routes (120 requests/min) plus a stricter limit on `/api/plan` (20 per 15 min). `trust proxy` is set so limits use the real client IP behind Vercel.
+- **HTTP hardening:** Helmet with a strict Content-Security-Policy (`default-src 'self'`), `x-powered-by` disabled, and error responses that never leak stack traces.
+- **Prompt-injection defence:** user-typed text is isolated in its own `USER_PROFILE_DATA` block marked as untrusted, with `<`/`>` escaped so it cannot close the block early. Gemini output is schema-validated, and every number shown to users is re-filled from the deterministic engine.
+- **Dependencies:** `npm audit` reports 0 known vulnerabilities.
 
 ---
 
@@ -75,10 +89,9 @@ hawahisaab/
 
 1. **Push this repository to GitHub** (`.env` is gitignored; no secrets are committed).
 2. **Import the repository in Vercel** (`Add New... -> Project`).
-3. Vercel automatically reads [`vercel.json`](vercel.json):
-   - **Build Command:** `npm run build`
-   - **Output Directory:** `web/dist`
-   - **API Rewrite:** `/api/(.*)` -> `/api` ([`api/index.ts`](api/index.ts))
+3. Keep **Root Directory** as `./` and the **Services** preset. Vercel reads [`vercel.json`](vercel.json), which defines two services:
+   - **`web`** (Vite): builds the engine and the SPA and serves it at `/`.
+   - **`server`** (Express): `npm run build:vercel` bundles the API, engine and dependencies into one ES module (`server/dist/vercel.mjs`), served at `/api/*`.
 4. **Add Environment Variables** in Vercel **Project Settings -> Environment Variables**:
    - `GEMINI_API_KEY` = your Google AI Studio Gemini API key
    - `GEMINI_MODEL` = `gemini-3.5-flash` _(optional)_

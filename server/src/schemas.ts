@@ -11,8 +11,7 @@ function parseCoordinate(min: number, max: number, label: string) {
       return Number(trimmed);
     },
     z
-      .number({ invalid_type_error: `${label} must be a valid number` })
-      .finite(`${label} must be finite`)
+      .number({ error: `${label} must be a valid number` })
       .min(min, `${label} must be >= ${String(min)}`)
       .max(max, `${label} must be <= ${String(max)}`),
   );
@@ -25,13 +24,13 @@ export const airQuerySchema = z.object({
 
 export const geocodeQuerySchema = z.object({
   q: z
-    .string({ required_error: 'q is required' })
+    .string({ error: 'q is required' })
     .trim()
     .min(2, 'Search query must be at least 2 characters')
     .max(100, 'Search query must be at most 100 characters'),
 });
 
-const nonNegativeNullableNumber = z.number().finite().min(0).max(5000).nullable();
+const nonNegativeNullableNumber = z.number().min(0).max(5000).nullable();
 
 const hourlyPointSchema = z.object({
   time: z.string().min(1).max(40),
@@ -47,16 +46,16 @@ const familyMemberSchema = z.object({
     .array(z.enum(['asthma', 'heart', 'pregnancy', 'none']))
     .min(1)
     .max(4),
-  outdoorHoursPerDay: z.number().finite().min(0).max(16),
+  outdoorHoursPerDay: z.number().min(0).max(16),
 });
 
 const cleanWindowSchema = z.object({
   startTime: z.string().min(1).max(40),
   endTime: z.string().min(1).max(40),
   hours: z.number().int().min(1).max(12),
-  averagePm25: z.number().finite().min(0).max(5000),
-  minPm25: z.number().finite().min(0).max(5000),
-  maxPm25: z.number().finite().min(0).max(5000),
+  averagePm25: z.number().min(0).max(5000),
+  minPm25: z.number().min(0).max(5000),
+  maxPm25: z.number().min(0).max(5000),
 });
 
 export const planRequestSchema = z
@@ -64,8 +63,8 @@ export const planRequestSchema = z
     profile: z.object({
       location: z.object({
         label: z.string().trim().min(1).max(200),
-        lat: z.number().finite().min(-90).max(90),
-        lon: z.number().finite().min(-180).max(180),
+        lat: z.number().min(-90).max(90),
+        lon: z.number().min(-180).max(180),
       }),
       members: z.array(familyMemberSchema).min(1).max(12),
       commuteMode: z.enum([
@@ -77,17 +76,17 @@ export const planRequestSchema = z
         'walk_cycle',
         'wfh',
       ]),
-      commuteKmRoundTrip: z.number().finite().min(0).max(200),
+      commuteKmRoundTrip: z.number().min(0).max(200),
       cookingFuel: z.enum(['lpg', 'png', 'induction', 'biomass']),
       homeSize: z.enum(['small_1bhk', 'medium_2bhk', 'large_3bhk']),
-      purifierCadrM3h: z.number().finite().min(0).max(1500),
+      purifierCadrM3h: z.number().min(0).max(1500),
       outdoorRoutine: z.string().max(2048),
       language: z.enum(['en', 'hi']),
     }),
     forecast: z.object({
       location: z.object({
-        lat: z.number().finite().min(-90).max(90),
-        lon: z.number().finite().min(-180).max(180),
+        lat: z.number().min(-90).max(90),
+        lon: z.number().min(-180).max(180),
         name: z.string().max(120).optional(),
         state: z.string().max(120).optional(),
         timezone: z.string().min(1).max(80),
@@ -102,12 +101,14 @@ export const planRequestSchema = z
         best1h: cleanWindowSchema.nullable(),
         best2h: cleanWindowSchema.nullable(),
         best3h: cleanWindowSchema.nullable(),
-        worstHours: z.array(
-          z.object({
-            time: z.string().min(1).max(40),
-            pm2_5: z.number().finite().min(0).max(5000),
-          }),
-        ),
+        worstHours: z
+          .array(
+            z.object({
+              time: z.string().min(1).max(40),
+              pm2_5: z.number().min(0).max(5000),
+            }),
+          )
+          .max(72),
       })
       .optional(),
   })
@@ -121,7 +122,7 @@ export const planRequestSchema = z
 
     if (Buffer.byteLength(combinedFreeText, 'utf8') > FREE_TEXT_MAX_BYTES) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['profile', 'outdoorRoutine'],
         message: 'Combined profile free text must not exceed 2048 bytes (2 kB)',
       });
